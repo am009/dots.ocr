@@ -21,7 +21,23 @@ dots.ocr: Multilingual Document Layout Parsing in a Single Vision-Language Model
 
 </div>
 
+## dots.ocr API
 
+本Fork提供Docker容器重新封装的API，支持20系等旧的 Turing GPU，不使用flash attention，因为不支持Turing及之前的GPU型号。测试机型：单2080ti 22GB。
+
+Docker一键运行命令：
+
+```bash
+```
+
+过程：
+
+1. 下载模型
+1. 模型文件中的`config.json`里面的`attn_implementation`改成`sdpa`
+1. 将模型文件中的`modeling_dots_vision.py`里面的bf16=True改成False。可能还要改一下`~/.cache/huggingface/modules/transformers_modules/DotsOCR/modeling_dots_vision.py`
+
+参考：
+- https://github.com/rednote-hilab/dots.ocr/issues/154#issuecomment-3233204618
 
 ## Introduction
 
