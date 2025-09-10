@@ -7,7 +7,7 @@ from transformers import AutoModelForCausalLM, AutoProcessor, AutoTokenizer
 from qwen_vl_utils import process_vision_info
 from dots_ocr.utils import dict_promptmode_to_prompt
 
-def inference(image_path, prompt, model, processor):
+def inference(image_path, prompt, model, processor, stream=False):
     from PIL import Image
     print(f"Processing image: {image_path}")
     image = Image.open(image_path)
@@ -59,16 +59,29 @@ def inference(image_path, prompt, model, processor):
 
     print(f"GPU memory allocated: {torch.cuda.memory_allocated()/1024**3:.2f}GB")
     print(f"GPU memory reserved: {torch.cuda.memory_reserved()/1024**3:.2f}GB")
-    # Inference: Generation of the output
-    with torch.no_grad():
-        generated_ids = model.generate(**inputs, max_new_tokens=12000, do_sample=False)
-        generated_ids_trimmed = [
-            out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
-        ]
-        output_text = processor.batch_decode(
-            generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
-        )
-    print(output_text)
+    
+    if stream:
+        # Inference: Generation of the output with streaming
+        from transformers import TextStreamer
+        streamer = TextStreamer(processor.tokenizer, skip_prompt=True, skip_special_tokens=True)
+        
+        with torch.no_grad():
+            generated_ids = model.generate(
+                **inputs, 
+                max_new_tokens=12000, 
+                do_sample=False,
+                streamer=streamer
+            )
+    else:
+        with torch.no_grad():
+            generated_ids = model.generate(**inputs, max_new_tokens=12000, do_sample=False)
+            generated_ids_trimmed = [
+                out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+            ]
+            output_text = processor.batch_decode(
+                generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+            )
+        print(output_text)
 
 
 
@@ -82,7 +95,7 @@ if __name__ == "__main__":
         device_map={ "": "cuda:0" },
         trust_remote_code=True,
         low_cpu_mem_usage=True,
-        max_memory={0: "14GiB"}  # Limit memory per GPU
+        # max_memory={0: "14GiB"}  # Limit memory per GPU
     )
     processor = AutoProcessor.from_pretrained(model_path,  trust_remote_code=True)
 
