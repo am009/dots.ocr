@@ -7,20 +7,28 @@ from transformers import AutoModelForCausalLM, AutoProcessor, AutoTokenizer
 from qwen_vl_utils import process_vision_info
 from dots_ocr.utils import dict_promptmode_to_prompt
 
-def inference(image_path, prompt, model, processor, stream=False):
+def inference(image_path, prompt, model, processor, temperature=0.1, top_p=1.0, max_height=None, max_width=None, max_new_tokens=12000, stream=False):
     from PIL import Image
     print(f"Processing image: {image_path}")
-    image = Image.open(image_path)
-    
-    max_size = 1200
-    if max(image.size) > max_size:
-        ratio = max_size / max(image.size)
-        new_size = (int(image.width * ratio), int(image.height * ratio))
-        image = image.resize(new_size, Image.LANCZOS)
-        print(f"Resized image from {Image.open(image_path).size} to {image.size}")
+    original_image = Image.open(image_path)
+    image = original_image
+
+    max_width = 1200
+    if max_width is not None and image.width > max_width:
+        new_size = (max_width, int(image.height * (max_width / image.width)))
+        print(f"Resize image from {original_image.size} to {new_size}")
+        image = original_image.resize(new_size, Image.LANCZOS)
         resized_path = "/tmp/resized_image.jpg"
         image.save(resized_path)
-        image_path = resized_path    
+        image_path = resized_path
+
+    if max_height is not None and image.height > max_height:
+        new_size = (int(original_image.width * (max_height / image.height)), max_height)
+        print(f"Resize image from {original_image.size} to {new_size}")
+        image = original_image.resize(new_size, Image.LANCZOS)
+        resized_path = "/tmp/resized_image.jpg"
+        image.save(resized_path)
+        image_path = resized_path
 
     messages = [
         {
@@ -68,13 +76,15 @@ def inference(image_path, prompt, model, processor, stream=False):
         with torch.no_grad():
             generated_ids = model.generate(
                 **inputs, 
-                max_new_tokens=12000, 
+                max_new_tokens=max_new_tokens, 
                 do_sample=False,
+                temperature=temperature,
+                top_p=top_p,
                 streamer=streamer
             )
     else:
         with torch.no_grad():
-            generated_ids = model.generate(**inputs, max_new_tokens=12000, do_sample=False)
+            generated_ids = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False, temperature=temperature, top_p=top_p)
             generated_ids_trimmed = [
                 out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
             ]
@@ -82,7 +92,6 @@ def inference(image_path, prompt, model, processor, stream=False):
                 generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
             )
         print(output_text)
-
 
 
 if __name__ == "__main__":
@@ -100,23 +109,9 @@ if __name__ == "__main__":
     processor = AutoProcessor.from_pretrained(model_path,  trust_remote_code=True)
 
     image_path = "demo/demo_image1.jpg"
-    prompt = """Please output the layout information from the PDF image, including each layout element's bbox, its category, and the corresponding text content within the bbox.
-
-1. Bbox format: [x1, y1, x2, y2]
-
-2. Layout Categories: The possible categories are ['Caption', 'Footnote', 'Formula', 'List-item', 'Page-footer', 'Page-header', 'Picture', 'Section-header', 'Table', 'Text', 'Title'].
-
-3. Text Extraction & Formatting Rules:
-    - Picture: For the 'Picture' category, the text field should be omitted.
-    - Formula: Format its text as LaTeX.
-    - Table: Format its text as HTML.
-    - All Others (Text, Title, etc.): Format their text as Markdown.
-
-4. Constraints:
-    - The output text must be the original text from the image, with no translation.
-    - All layout elements must be sorted according to human reading order.
-
-5. Final Output: The entire output must be a single JSON object.
-"""
+    prompt_type = 'prompt_layout_all_en'
+    # prompt type必须是下列四种之一：
+    # prompt_layout_all_en prompt_layout_only_en prompt_ocr prompt_grounding_ocr
+    prompt = dict_promptmode_to_prompt[prompt_type]
     print(f"prompt: {prompt}")
     inference(image_path, prompt, model, processor)
