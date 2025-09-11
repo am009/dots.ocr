@@ -95,6 +95,28 @@ def inference(image_path, prompt, model, processor, temperature=0.1, top_p=1.0, 
 
 
 if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Run DotsOCR inference')
+    parser.add_argument('--prompt_type', type=str, default='prompt_layout_all_en',
+                        choices=['prompt_layout_all_en', 'prompt_layout_only_en', 'prompt_ocr', 'prompt_grounding_ocr'],
+                        help='Prompt type')
+    parser.add_argument('--image_path', type=str, default='demo/demo_image1.jpg',
+                        help='Path to the input image')
+    parser.add_argument('--temperature', type=float, default=0.1,
+                        help='Temperature for generation')
+    parser.add_argument('--top_p', type=float, default=1.0,
+                        help='Top p for generation')
+    parser.add_argument('--max_height', type=int, default=None,
+                        help='Maximum height for image resizing')
+    parser.add_argument('--max_width', type=int, default=None,
+                        help='Maximum width for image resizing')
+    parser.add_argument('--max_new_tokens', type=int, default=12000,
+                        help='Maximum number of new tokens to generate')
+    parser.add_argument('--stream', action='store_true',
+                        help='Enable streaming output')
+    
+    args = parser.parse_args()
 
     model_path = "./weights/DotsOCR"
     model = AutoModelForCausalLM.from_pretrained(
@@ -108,10 +130,11 @@ if __name__ == "__main__":
     )
     processor = AutoProcessor.from_pretrained(model_path,  trust_remote_code=True)
 
-    image_path = "demo/demo_image1.jpg"
-    prompt_type = 'prompt_layout_all_en'
     # prompt type必须是下列四种之一：
     # prompt_layout_all_en prompt_layout_only_en prompt_ocr prompt_grounding_ocr
-    prompt = dict_promptmode_to_prompt[prompt_type]
+    prompt = dict_promptmode_to_prompt[args.prompt_type]
     print(f"prompt: {prompt}")
-    inference(image_path, prompt, model, processor)
+    inference(args.image_path, prompt, model, processor, 
+              temperature=args.temperature, top_p=args.top_p, 
+              max_height=args.max_height, max_width=args.max_width, 
+              max_new_tokens=args.max_new_tokens, stream=args.stream)
