@@ -5,7 +5,7 @@ import time
 
 def test_ocr_api():
     """Test the OCR API server"""
-    base_url = "http://localhost:5001"
+    base_url = "http://localhost:5123"
     
     # Test health endpoint
     print("Testing health endpoint...")

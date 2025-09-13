@@ -28,6 +28,7 @@ dots.ocr: Multilingual Document Layout Parsing in a Single Vision-Language Model
 Docker一键运行命令：
 
 ```bash
+TODO
 ```
 
 过程：
@@ -38,6 +39,12 @@ Docker一键运行命令：
 
 参考：
 - https://github.com/rednote-hilab/dots.ocr/issues/154#issuecomment-3233204618
+
+API使用：
+
+TODO
+
+有谁需要用这个吗，和我说一下我再更新
 
 ## Introduction
 
