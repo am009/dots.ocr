@@ -13,7 +13,6 @@ def inference(image_path, prompt, model, processor, temperature=0.1, top_p=1.0, 
     original_image = Image.open(image_path)
     image = original_image
 
-    max_width = 1200
     if max_width is not None and image.width > max_width:
         new_size = (max_width, int(image.height * (max_width / image.width)))
         print(f"Resize image from {original_image.size} to {new_size}")

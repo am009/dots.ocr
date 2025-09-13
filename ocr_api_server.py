@@ -38,7 +38,7 @@ def load_model():
     processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
     print("Model loaded successfully")
 
-def inference_with_stream(image_path, prompt, temperature=0.1, top_p=1.0, max_new_tokens=12000):
+def inference_with_stream(image_path, prompt, temperature=0.1, top_p=1.0, max_new_tokens=24000):
     """Run inference with streaming output using TextIteratorStreamer"""
     messages = [
         {
@@ -181,7 +181,7 @@ def ocr():
     prompt_type = data.get('prompt_type', 'prompt_layout_all_en')
     temperature = data.get('temperature', 0.1)
     top_p = data.get('top_p', 1.0)
-    max_new_tokens = data.get('max_new_tokens', 12000)
+    max_new_tokens = data.get('max_new_tokens', 24000)
     stream = data.get('stream', False)
     
     if not image_data:
