@@ -5,6 +5,7 @@ if "LOCAL_RANK" not in os.environ:
 import json
 import threading
 from flask import Flask, request, jsonify, Response
+from flask_cors import CORS
 import torch
 from transformers import AutoModelForCausalLM, AutoProcessor, TextIteratorStreamer
 from qwen_vl_utils import process_vision_info
@@ -17,6 +18,7 @@ import os
 from datetime import datetime
 
 app = Flask(__name__)
+CORS(app)
 
 # Global variables for model and processor
 model = None
@@ -38,13 +40,13 @@ def load_model():
     processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
     print("Model loaded successfully")
 
-def inference_with_stream(image_path, prompt, temperature=0.1, top_p=1.0, max_new_tokens=24000):
+def inference_with_stream(image_data, prompt, temperature=0.1, top_p=1.0, max_new_tokens=24000):
     """Run inference with streaming output using TextIteratorStreamer"""
     messages = [
         {
             "role": "user", 
             "content": [
-                {"type": "image", "image": image_path},
+                {"type": "image", "image": image_data},
                 {"type": "text", "text": prompt}
             ]
         }
@@ -90,13 +92,13 @@ def inference_with_stream(image_path, prompt, temperature=0.1, top_p=1.0, max_ne
     
     return streamer
 
-def inference_non_stream(image_path, prompt, temperature=0.1, top_p=1.0, max_new_tokens=12000):
+def inference_non_stream(image_data, prompt, temperature=0.1, top_p=1.0, max_new_tokens=12000):
     """Run inference without streaming"""
     messages = [
         {
             "role": "user", 
             "content": [
-                {"type": "image", "image": image_path},
+                {"type": "image", "image": image_data},
                 {"type": "text", "text": prompt}
             ]
         }
@@ -142,27 +144,6 @@ def health():
     """Health check endpoint"""
     return jsonify({"status": "healthy", "model_loaded": model is not None})
 
-def process_image_input(image_data, image_format="path"):
-    """Process image input from various formats"""
-    if image_format == "base64":
-        # Decode base64 image
-        image_bytes = base64.b64decode(image_data)
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp_file:
-            tmp_file.write(image_bytes)
-            tmp_file.flush()
-            return tmp_file.name
-    elif image_format == "url":
-        # Use fetch_image to handle URL
-        image = fetch_image(image_data)
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp_file:
-            image.save(tmp_file.name)
-            return tmp_file.name
-    elif image_format == "path":
-        # Direct file path
-        return image_data
-    else:
-        raise ValueError(f"Unsupported image format: {image_format}")
-
 @app.route('/ocr', methods=['POST'])
 def ocr():
     """OCR endpoint that processes images and returns text"""
@@ -177,7 +158,6 @@ def ocr():
     
     # Extract parameters
     image_data = data.get('image')
-    image_format = data.get('image_format', 'path')  # path, url, base64
     prompt_type = data.get('prompt_type', 'prompt_layout_all_en')
     temperature = data.get('temperature', 0.1)
     top_p = data.get('top_p', 1.0)
@@ -193,11 +173,8 @@ def ocr():
     # Use lock to ensure single request processing
     if not processing_lock.acquire(blocking=False):
         return jsonify({"error": "Server is busy processing another request"}), 429
-    
+
     try:
-        # Process image
-        image_path = process_image_input(image_data, image_format)
-        
         # Get prompt
         prompt = dict_promptmode_to_prompt[prompt_type]
         
@@ -205,7 +182,7 @@ def ocr():
             # Return streaming response using TextIteratorStreamer
             def generate_stream():
                 try:
-                    streamer = inference_with_stream(image_path, prompt, temperature, top_p, max_new_tokens)
+                    streamer = inference_with_stream(image_data, prompt, temperature, top_p, max_new_tokens)
                     
                     accumulated_text = ""
                     for new_text in streamer:
@@ -235,21 +212,14 @@ def ocr():
                         "done": True
                     }
                     yield f"{json.dumps(error_response)}\n"
-                finally:
-                    # Clean up temporary file
-                    if image_format in ['base64', 'url'] and os.path.exists(image_path):
-                        os.unlink(image_path)
             
             return Response(generate_stream(), mimetype='application/x-ndjson')
-        
+
         else:
             # Non-streaming response
-            result = inference_non_stream(image_path, prompt, temperature, top_p, max_new_tokens)
+            result = inference_non_stream(image_data, prompt, temperature, top_p, max_new_tokens)
             
-            # Clean up temporary file
-            if image_format in ['base64', 'url'] and os.path.exists(image_path):
-                os.unlink(image_path)
-            
+
             return jsonify({
                 "model": "dots-ocr",
                 "response": result,
@@ -257,10 +227,7 @@ def ocr():
             })
 
     except Exception as e:
-        # Clean up temporary file on error
-        if 'image_path' in locals() and image_format in ['base64', 'url'] and os.path.exists(image_path):
-            os.unlink(image_path)
-        
+
         return jsonify({"error": str(e)}), 500
     
     finally:
