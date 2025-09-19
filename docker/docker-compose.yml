@@ -2,21 +2,16 @@ version: '3.8'
 
 services:
   dots-ocr-server:
-    image: dots-ocr:latest
+    image: rednotehilab/dots.ocr:vllm-openai-v0.9.1
     container_name: dots-ocr-container
+    network_mode: bridge
     ports:
-      - "8000:8000"
+      - "18000:8000"
     volumes:
       #download model to local，model url：https://www.modelscope.cn/models/rednote-hilab/dots.ocr
-      - ./model/dots.ocr:/workspace/weights/DotsOCR
-    environment:
-      - PYTHONPATH=/workspace/weights:$PYTHONPATH
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
-              device_ids: ['0']
+      - weights/DotsOCR:/workspace/weights/DotsOCR
+    privileged: true
+    runtime: nvidia
     entrypoint: /bin/bash
     command:
       - -c
@@ -30,6 +25,9 @@ services:
         # Show the patched part of the vllm script for verification.
         grep -A 1 'from vllm.entrypoints.cli.main import main' $(which vllm) && \
         echo 'Starting server...';
+        export CUDA_VISIBLE_DEVICES=0
+        export VLLM_SERVER_DEV_MODE=1
+        export PYTHONPATH=/workspace/weights:$PYTHONPATH
         # Use 'exec' to replace the current shell process with the vllm server,
         # ensuring logs are properly forwarded to Docker's standard output.
         exec vllm serve /workspace/weights/DotsOCR \
@@ -37,8 +35,13 @@ services:
             --gpu-memory-utilization 0.8 \
             --chat-template-content-format string \
             --served-model-name dotsocr-model \
+            --enable-sleep-mode \
             --trust-remote-code
 
+# pip install flash-attn==2.7.4.post1 --no-build-isolation
 
-
+# docker run --name dots-ocr-container -it -v ./weights/DotsOCR:/workspace/weights/DotsOCR --runtime=nvidia --gpus=all --privileged --entrypoint bash rednotehilab/dots.ocr:vllm-openai-v0.9.1
+# pip uninstall -y flash_attn
+# 
+# export PYTHONPATH=/DotsOCR/weights:$PYTHONPATH
 
