@@ -28,11 +28,28 @@ processing_lock = threading.Lock()
 def load_model():
     """Load the OCR model and processor"""
     global model, processor
-    
+
+    TORCH_DTYPE = 'float32'
+    if 'TORCH_DTYPE' in os.environ:
+        TORCH_DTYPE = os.environ['TORCH_DTYPE']
+    elif torch.cuda.get_device_capability()[0] > 7: # 30 series
+        print("30-series or newer is detected! use bfloat16!")
+        TORCH_DTYPE = 'bfloat16'
+
+    torch_dtype = torch.float32
+    if TORCH_DTYPE == 'float32':
+        torch_dtype = torch.float32
+    elif TORCH_DTYPE == 'float16':
+        torch_dtype = torch.float16
+    elif TORCH_DTYPE == 'bfloat16':
+        torch_dtype = torch.bfloat16
+    else:
+        print(f"Unknown TORCH_DTYPE: {TORCH_DTYPE}, default to float32")
+
     model_path = "./weights/DotsOCR"
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
-        torch_dtype=torch.float32,
+        torch_dtype=torch_dtype,
         device_map={"": "cuda:0"},
         trust_remote_code=True,
         low_cpu_mem_usage=True,
