@@ -14,7 +14,10 @@ Docker一键运行命令：（API端口为5000）API使用文档见API_Documenta
 Docker run command: (API port is 5000) API usage documentation is in API_Documentation.md.
 
 ```bash
+# 对于20系显卡：  For 20 series(Turing or older):
 docker run --name dots-ocr-container -d --runtime=nvidia --gpus=all -p 5000:5000 docker.io/am009/dots.ocr:latest
+# 对于支持bfloat的30系以上的显卡：   For RTX 30 series and newer cards:
+docker run --name dots-ocr-container -d --runtime=nvidia --gpus=all --entrypoint bash -p 5000:5000  docker.io/am009/dots.ocr:latest -c "sed -i 's/bf16=False/bf16=True/' /DotsOCR/weights/DotsOCR/modeling_dots_vision.py; /DotsOCR/start.sh"
 ```
 
 配套静态PDF识别的网页界面：http://tool.latexdiff.cn  https://tool.latexdiff.cn https://github.com/am009/LLM-online-tool
