@@ -50,14 +50,14 @@ def load_model():
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
         torch_dtype=torch_dtype,
-        device_map={"": "cuda:0"},
+        device_map="auto",
         trust_remote_code=True,
         low_cpu_mem_usage=True,
     )
     processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
     print("Model loaded successfully")
 
-def inference_with_stream(image_data, prompt, temperature=0.1, top_p=1.0, max_new_tokens=24000):
+def inference_with_stream(image_data, prompt, max_new_tokens=24000):
     """Run inference with streaming output using TextIteratorStreamer"""
     messages = [
         {
@@ -97,8 +97,6 @@ def inference_with_stream(image_data, prompt, temperature=0.1, top_p=1.0, max_ne
         **inputs,
         "max_new_tokens": max_new_tokens,
         "do_sample": False,
-        "temperature": temperature,
-        "top_p": top_p,
         "streamer": streamer,
         "pad_token_id": processor.tokenizer.eos_token_id
     }
@@ -109,7 +107,7 @@ def inference_with_stream(image_data, prompt, temperature=0.1, top_p=1.0, max_ne
     
     return streamer
 
-def inference_non_stream(image_data, prompt, temperature=0.1, top_p=1.0, max_new_tokens=12000):
+def inference_non_stream(image_data, prompt, max_new_tokens=12000):
     """Run inference without streaming"""
     messages = [
         {
@@ -142,8 +140,6 @@ def inference_non_stream(image_data, prompt, temperature=0.1, top_p=1.0, max_new
             **inputs,
             max_new_tokens=max_new_tokens,
             do_sample=False,
-            temperature=temperature,
-            top_p=top_p,
             pad_token_id=processor.tokenizer.eos_token_id
         )
         
@@ -176,8 +172,6 @@ def ocr():
     # Extract parameters
     image_data = data.get('image')
     prompt_type = data.get('prompt_type', 'prompt_layout_all_en')
-    temperature = data.get('temperature', 0.1)
-    top_p = data.get('top_p', 1.0)
     max_new_tokens = data.get('max_new_tokens', 24000)
     stream = data.get('stream', False)
     
@@ -199,7 +193,7 @@ def ocr():
             # Return streaming response using TextIteratorStreamer
             def generate_stream():
                 try:
-                    streamer = inference_with_stream(image_data, prompt, temperature, top_p, max_new_tokens)
+                    streamer = inference_with_stream(image_data, prompt, max_new_tokens)
                     
                     accumulated_text = ""
                     for new_text in streamer:
@@ -234,7 +228,7 @@ def ocr():
 
         else:
             # Non-streaming response
-            result = inference_non_stream(image_data, prompt, temperature, top_p, max_new_tokens)
+            result = inference_non_stream(image_data, prompt, max_new_tokens)
             
 
             return jsonify({

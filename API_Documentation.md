@@ -2,6 +2,10 @@
 
 本文档描述了基于 Flask 的 DotsOCR API 服务器的请求和响应格式。
 
+**由于VLLM的token分割，图片的长和宽的像素数量最好要是28的倍数！！否则可能出现识别坐标略微错位的情况。文档转图片时，推荐使用200dpi。**
+
+**Due to the token segmentation of VLLM, the pixel dimensions of the image's length and width should preferably be multiples of 28! Otherwise, there may be slight misalignment in the recognition coordinates. When converting documents to images, it is recommended to use 200 dpi.**
+
 ## 服务器信息
 
 - **基础URL**: `http://localhost:5000`

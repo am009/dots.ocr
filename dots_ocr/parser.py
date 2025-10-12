@@ -31,7 +31,7 @@ class DotsOCRParser:
             output_dir="./output", 
             min_pixels=None,
             max_pixels=None,
-            use_hf=False,
+            use_hf=True,
         ):
         self.dpi = dpi
 
@@ -65,12 +65,12 @@ class DotsOCRParser:
         model_path = "./weights/DotsOCR"
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path,
-            attn_implementation="flash_attention_2",
-            torch_dtype=torch.bfloat16,
+            attn_implementation="sdpa",
+            torch_dtype=torch.float32,
             device_map="auto",
             trust_remote_code=True
         )
-        self.processor = AutoProcessor.from_pretrained(model_path,  trust_remote_code=True,use_fast=True)
+        self.processor = AutoProcessor.from_pretrained(model_path,  trust_remote_code=True)
         self.process_vision_info = process_vision_info
 
     def _inference_with_hf(self, image, prompt):
